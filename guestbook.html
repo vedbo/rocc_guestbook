@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Firebase Guestbook</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+        
+        .input-section {
+            margin-bottom: 30px;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .messages-section {
+            margin-top: 30px;
+        }
+        
+        .messages-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .message {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .message-name {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .message-text {
+            color: #333;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        
+        .message-time {
+            font-size: 0.8em;
+            color: #999;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-style: italic;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 My Guestbook</h1>
+        <p class="subtitle">Leave a message and watch it appear in real-time!</p>
+        
+        <div id="status" class="status connected">✅ Connected to Firebase!</div>
+        
+        <div class="input-section">
+            <input type="text" id="nameInput" placeholder="Your name">
+            <textarea id="messageInput" placeholder="Your message..."></textarea>
+            <button onclick="addMessage()">📝 Sign Guestbook</button>
+        </div>
+        
+        <div class="messages-section">
+            <h2>📬 Messages (<span id="messageCount">0</span>)</h2>
+            <div id="messages">
+                <div class="empty-state">No messages yet. Be the first to sign! ✨</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+        // ============================================
+        // PASTE YOUR FIREBASE CONFIG HERE! 👇
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.firebasestorage.app",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        let app, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            console.log("✅ Firebase initialized successfully!");
+        } catch (error) {
+            console.error("❌ Firebase initialization error:", error);
+            document.getElementById('status').className = 'status error';
+            document.getElementById('status').textContent = '❌ Error connecting to Firebase';
+        }
+
+        // Listen for new messages in real-time
+        const q = query(collection(db, "messages"), orderBy("timestamp", "desc"));
+        onSnapshot(q, (snapshot) => {
+            const messagesDiv = document.getElementById('messages');
+            const messageCount = document.getElementById('messageCount');
+            
+            if (snapshot.empty) {
+                messagesDiv.innerHTML = '<div class="empty-state">No messages yet. Be the first to sign! ✨</div>';
+                messageCount.textContent = '0';
+                return;
+            }
+            
+            messagesDiv.innerHTML = '';
+            messageCount.textContent = snapshot.size;
+            
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                
+                const time = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : 'Just now';
+                
+                messageDiv.innerHTML = `
+                    <div class="message-name">${escapeHtml(data.name)}</div>
+                    <div class="message-text">${escapeHtml(data.message)}</div>
+                    <div class="message-time">${time}</div>
+                `;
+                
+                messagesDiv.appendChild(messageDiv);
+            });
+        });
+
+        // Add message function (make it global so button can call it)
+        window.addMessage = async function() {
+            const nameInput = document.getElementById('nameInput');
+            const messageInput = document.getElementById('messageInput');
+            
+            const name = nameInput.value.trim();
+            const message = messageInput.value.trim();
+            
+            if (!name || !message) {
+                alert('Please enter both your name and a message!');
+                return;
+            }
+            
+            try {
+                await addDoc(collection(db, "messages"), {
+                    name: name,
+                    message: message,
+                    timestamp: serverTimestamp()
+                });
+                
+                // Clear inputs
+                nameInput.value = '';
+                messageInput.value = '';
+                
+                console.log("✅ Message added successfully!");
+            } catch (error) {
+                console.error("❌ Error adding message:", error);
+                alert('Error adding message. Check the console for details.');
+            }
+        }
+
+        // Helper function to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
