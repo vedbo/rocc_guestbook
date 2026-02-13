@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROCC Cloud Guestbook</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        h1 { color: #f58220; text-align: center; margin-bottom: 1.5rem; }
+        input, textarea { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #f58220; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #e67616; }
+        #guestbook-entries { margin-top: 2rem; border-top: 2px solid #eee; padding-top: 1rem; }
+        .entry { background: #fafafa; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #f58220; }
+        .entry b { color: #333; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>☁️ ROCC Guestbook</h1>
+    <input type="text" id="name" placeholder="Your Name">
+    <textarea id="message" placeholder="Write a message to the cloud..."></textarea>
+    <button id="submit">Post to Guestbook</button>
+
+    <div id="guestbook-entries">
+        </div>
+</div>
+
+<script type="module">
+    // Import Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } 
+    from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // 1. PASTE YOUR CONFIG FROM FIREBASE CONSOLE HERE
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT.firebaseapp.com",
+        projectId: "YOUR_PROJECT",
+        storageBucket: "YOUR_PROJECT.appspot.com",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    // 2. Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const messagesCol = collection(db, "messages");
+
+    // 3. The "Magic" Listener (Slide 5: onSnapshot)
+    const q = query(messagesCol, orderBy("timestamp", "desc"));
+    onSnapshot(q, (snapshot) => {
+        const entriesDiv = document.getElementById("guestbook-entries");
+        entriesDiv.innerHTML = ""; // Clear current list
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const entry = document.createElement("div");
+            entry.className = "entry";
+            entry.innerHTML = `<b>${data.name}</b> ${data.text}`;
+            entriesDiv.appendChild(entry);
+        });
+    });
+
+    // 4. Writing to the Cloud
+    document.getElementById("submit").onclick = async () => {
+        const nameInput = document.getElementById("name");
+        const msgInput = document.getElementById("message");
+
+        if (nameInput.value && msgInput.value) {
+            await addDoc(messagesCol, {
+                name: nameInput.value,
+                text: msgInput.value,
+                timestamp: serverTimestamp()
+            });
+            msgInput.value = ""; // Clear input after sending
+        }
+    };
+</script>
+
+</body>
+</html>
